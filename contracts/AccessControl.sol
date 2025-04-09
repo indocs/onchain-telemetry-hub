@@ -1,31 +1,44 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// Minimal access control with a single owner. This can be imported by existing contracts
-// to tighten ownership semantics without pulling in heavy dependencies.
+// This is a lightweight AccessControl-like shim used by the existing repo
+// to provide role-based access control. It intentionally mirrors a subset
+// of OpenZeppelin's AccessControl for simplicity in tests.
+
 contract AccessControl {
-    address public owner;
+    bytes32 public constant DEFAULT_ADMIN_ROLE = 0x00;
 
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    mapping(bytes32 => mapping(address => bool)) private _roles;
 
-    constructor() {
-        owner = msg.sender;
-        emit OwnershipTransferred(address(0), owner);
-    }
+    event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
+    event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "AccessControl: caller is not the owner");
+    modifier onlyRole(bytes32 role) {
+        require(hasRole(role, msg.sender), "AccessControl: access denied");
         _;
     }
 
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "AccessControl: new owner is the zero address");
-        address oldOwner = owner;
-        owner = newOwner;
-        emit OwnershipTransferred(oldOwner, newOwner);
+    function hasRole(bytes32 role, address account) public view returns (bool) {
+        return _roles[role][account];
     }
 
-    function isOwner(address account) external view returns (bool) {
-        return account == owner;
+    function _grantRole(bytes32 role, address account) internal {
+        _roles[role][account] = true;
+        emit RoleGranted(role, account, msg.sender);
+    }
+
+    function _revokeRole(bytes32 role, address account) internal {
+        _roles[role][account] = false;
+        emit RoleRevoked(role, account, msg.sender);
+    }
+
+    // Lightweight public helper for tests and integrations
+    function hasAdmin(address account) external view returns (bool) {
+        return hasRole(DEFAULT_ADMIN_ROLE, account);
+    }
+
+    // New security-tight helper to expose role checks publicly for tests
+    function hasRolePublic(bytes32 role, address account) external view returns (bool) {
+        return hasRole(role, account);
     }
 }
